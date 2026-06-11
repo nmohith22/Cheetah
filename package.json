@@ -1,0 +1,63 @@
+{
+  "name": "cheetah",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux"
+  },
+  "keywords": [
+    "privacy",
+    "browser",
+    "electron",
+    "adblocker"
+  ],
+  "author": "nmohith22",
+  "license": "MIT",
+  "description": "Sleek, lightning-fast, and privacy-focused multi-tab browser with built-in adblocker.",
+  "devDependencies": {
+    "electron": "^41.7.1",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.17.3",
+    "cross-fetch": "^4.1.0"
+  },
+  "build": {
+    "appId": "com.cheetah.browser",
+    "productName": "Cheetah",
+    "directories": {
+      "output": "dist-build"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "zip"
+      ],
+      "icon": "icon.png"
+    },
+    "files": [
+      "**/*",
+      "!dist-build/**/*"
+    ]
+  }
+}

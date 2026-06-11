@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cheetah Browser</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Invisible trigger area for fullscreen hover -->
+  <div id="fullscreen-trigger"></div>
+
+  <!-- Header Area containing Tabbar and Toolbar -->
+  <div id="header-area">
+    <!-- Tab Bar -->
+    <div id="tabbar">
+      <div id="tabs-list">
+        <!-- Tabs will be dynamically injected here -->
+      </div>
+      <button id="add-tab-btn" class="icon-btn" title="New Tab">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button id="tabs-overview-btn" class="icon-btn" title="Tab Grid Overview">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      </button>
+    </div>
+
+    <!-- Navigation & URL Toolbar -->
+    <div id="toolbar">
+      <div class="nav-group">
+        <button id="back-btn" class="icon-btn" title="Back" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <button id="forward-btn" class="icon-btn" title="Forward" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <button id="reload-btn" class="icon-btn" title="Reload">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        </button>
+        <button id="home-btn" class="icon-btn" title="Home Page">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        </button>
+      </div>
+      
+      <div class="url-bar-container">
+        <!-- Shield Icon for Privacy Protection Stats Dropdown -->
+        <div id="shield-status-btn" class="shield-icon" title="Cheetah Protection Guards">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span id="shield-count-badge">0</span>
+        </div>
+        <input type="text" id="url-input" placeholder="Search securely or type a URL..." spellcheck="false" />
+        
+        <!-- Star icon for Bookmarking -->
+        <button id="bookmark-page-btn" class="icon-btn inner-input-btn" title="Bookmark this Page">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </button>
+        <!-- Search Engine Quick config inside URL bar -->
+        <button id="search-settings-btn" class="icon-btn inner-input-btn" title="Search Engine Settings">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+
+      <div class="menu-group">
+        <!-- Bookmarks dropdown toggle -->
+        <button id="bookmarks-menu-btn" class="icon-btn" title="Bookmarks list">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </button>
+        <!-- History drawer toggle -->
+        <button id="history-menu-btn" class="icon-btn" title="Browsing History">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </button>
+        <!-- Downloads drawer toggle -->
+        <button id="downloads-menu-btn" class="icon-btn downloads-badge" title="Downloads">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span id="downloads-count-badge" class="hidden">0</span>
+        </button>
+        <!-- Themes panel toggle -->
+        <button id="theme-btn" class="icon-btn" title="Switch Theme">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+        </button>
+        <!-- Full settings toggle -->
+        <button id="settings-menu-btn" class="icon-btn" title="Cheetah Settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bookmarks Bar (Toggable) -->
+    <div id="bookmarks-bar" class="bookmarks-bar">
+      <div id="bookmarks-bar-list" class="bookmarks-bar-list">
+        <!-- Quick bookmark links will go here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Containers -->
+  <div id="main-content-area">
+    <!-- Webviews for active browsing tabs will be dynamically injected here -->
+    <div id="tabs-container"></div>
+
+    <!-- Gorgeous, Animated, and Interactive Home/New Tab View -->
+    <div id="newtab-view" class="newtab-view">
+      <div class="newtab-gradient-bg"></div>
+      <div class="newtab-content">
+        <div class="clock-widget">
+          <h1 id="newtab-clock">12:00 PM</h1>
+          <p id="newtab-greeting">Welcome back</p>
+        </div>
+
+        <div class="newtab-search-wrapper">
+          <div class="newtab-search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="newtab-search-input" placeholder="Search the web with Cheetah speed..." spellcheck="false" autocomplete="off" />
+            <button id="newtab-search-btn">Search</button>
+          </div>
+          <div class="newtab-search-engine-label">
+            Searching securely using <span id="newtab-engine-name" style="color: var(--accent-color); font-weight: 600;">DuckDuckGo</span>
+          </div>
+        </div>
+
+        <!-- Speed Dial Grid -->
+        <div class="speed-dial-section">
+          <h2>Favorites</h2>
+          <div id="speed-dial-grid" class="speed-dial-grid">
+            <!-- Dynamic favorites cards go here -->
+          </div>
+        </div>
+
+        <!-- Privacy & Protection Dashboard Summary -->
+        <div class="privacy-dashboard-section">
+          <div class="stat-card">
+            <div class="stat-icon" style="color: var(--accent-color);">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <div class="stat-value" id="stat-ads-blocked">0</div>
+            <div class="stat-label">Trackers Blocked</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="color: #5ce6e6;">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+            <div class="stat-value">Private</div>
+            <div class="stat-label">Incognito Session</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="color: #fabd2f;">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </div>
+            <div class="stat-value">Instant</div>
+            <div class="stat-label">GPU Accelerated</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Popovers (Sleek overlay cards) -->
+
+  <!-- AdBlocker Shield Stats Dropdown Popover -->
+  <div id="shield-popover" class="popover-panel hidden">
+    <div class="popover-header">
+      <div class="popover-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" style="margin-right: 8px; color: var(--accent-color);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Cheetah Privacy Shield
+      </div>
+      <label class="switch-toggle" title="Toggle adblocker">
+        <input type="checkbox" id="shield-toggle-checkbox" checked>
+        <span class="slider-round"></span>
+      </label>
+    </div>
+    <div class="popover-body">
+      <div class="shield-stat-row">
+        <span>Blocked on this tab:</span>
+        <strong id="tab-blocked-count" style="color: var(--accent-color); font-size: 18px;">0</strong>
+      </div>
+      <div class="shield-stat-row">
+        <span>Total blocked lifetime:</span>
+        <strong id="lifetime-blocked-count">0</strong>
+      </div>
+      
+      <div class="shield-tracker-list-title">Blocked Network Connections</div>
+      <div id="blocked-trackers-list" class="blocked-trackers-list">
+        <div class="empty-list-msg">No trackers detected yet on this page.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bookmarks Dropdown Popover -->
+  <div id="bookmarks-popover" class="popover-panel hidden">
+    <div class="popover-header">
+      <div class="popover-title">Bookmarks</div>
+      <button id="add-bookmark-btn" class="primary-btn" style="padding: 4px 10px; font-size: 12px;">Add Current</button>
+    </div>
+    <div class="popover-body">
+      <div id="bookmarks-list" class="popover-item-list">
+        <!-- Dynamically filled bookmarks list -->
+        <div class="empty-list-msg">No bookmarks saved yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Dropdown Popover -->
+  <div id="history-popover" class="popover-panel hidden">
+    <div class="popover-header">
+      <div class="popover-title">Browsing History</div>
+      <button id="clear-history-btn" class="danger-btn">Clear All</button>
+    </div>
+    <div class="popover-body">
+      <input type="text" id="history-search" class="styled-input-small" placeholder="Search history..." />
+      <div id="history-list" class="popover-item-list">
+        <!-- Dynamically filled history list -->
+        <div class="empty-list-msg">No history records.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Downloads Drawer Dropover -->
+  <div id="downloads-popover" class="popover-panel hidden">
+    <div class="popover-header">
+      <div class="popover-title">Downloads</div>
+      <button id="clear-downloads-btn" class="text-btn">Clear List</button>
+    </div>
+    <div class="popover-body">
+      <div id="downloads-list" class="popover-item-list">
+        <!-- Dynamically filled downloads list -->
+        <div class="empty-list-msg">No downloads in this session.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab overview modal (Grid modal triggered from toolbar/tabbar) -->
+  <div id="tab-modal" class="hidden">
+    <div class="modal-header">
+      <div class="brand">Cheetah Tabs</div>
+      <div class="modal-actions">
+        <button id="new-window-btn" class="primary-btn">New Window</button>
+        <button id="new-tab-btn" class="primary-btn">New Tab</button>
+        <button id="close-modal-btn" class="icon-btn">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    <div id="tab-grid">
+      <!-- Tab thumbnails will be populated here -->
+    </div>
+  </div>
+
+  <!-- Full settings modal -->
+  <div id="settings-modal" class="hidden fullscreen-modal">
+    <div class="modal-header">
+      <h2 class="brand">Settings</h2>
+      <button id="close-settings-btn" class="icon-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    
+    <div class="settings-layout">
+      <!-- Settings Sidebar -->
+      <div class="settings-sidebar">
+        <button class="settings-nav-btn active" data-target="settings-search">Search Engine</button>
+        <button class="settings-nav-btn" data-target="settings-themes">Themes</button>
+        <button class="settings-nav-btn" data-target="settings-privacy">Privacy & Security</button>
+        <button class="settings-nav-btn" data-target="settings-bookmarks">Bookmarks Manager</button>
+      </div>
+
+      <!-- Settings Content Panels -->
+      <div class="settings-content">
+        <!-- Search engine panel -->
+        <div id="settings-search" class="settings-panel-section">
+          <h3>Search Engine</h3>
+          <p class="settings-desc">Choose which search engine is used for searches typed in the URL bar and new tab page.</p>
+          <select id="search-engine-select" class="styled-select">
+            <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+            <option value="https://www.mojeek.com/search?q=">Mojeek</option>
+            <option value="https://www.google.com/search?q=">Google</option>
+            <option value="custom">Custom...</option>
+          </select>
+          <div id="custom-search-container" class="hidden" style="margin-top: 15px; display: flex; gap: 10px;">
+            <input type="text" id="custom-search-input" placeholder="e.g. https://search.brave.com/search?q=" class="styled-input" />
+            <button id="save-custom-search" class="primary-btn">Save</button>
+          </div>
+        </div>
+
+        <!-- Themes panel -->
+        <div id="settings-themes" class="settings-panel-section hidden">
+          <h3>Themes</h3>
+          <p class="settings-desc">Customize the appearance of Cheetah with one of our pre-built themes.</p>
+          <div id="theme-grid" class="grid-container"></div>
+        </div>
+
+        <!-- Privacy & security panel -->
+        <div id="settings-privacy" class="settings-panel-section hidden">
+          <h3>Privacy & Security</h3>
+          <p class="settings-desc">Manage Cheetah's strict anti-tracking system and temporary sessions.</p>
+          <div class="setting-item-toggle">
+            <div>
+              <div class="setting-item-title">Aggressive Ad & Tracker Protection</div>
+              <div class="setting-item-desc">Enable Ghostery Engine blocking to filter ads and trackers.</div>
+            </div>
+            <label class="switch-toggle">
+              <input type="checkbox" id="settings-shield-toggle" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+          <div class="setting-item-toggle" style="margin-top: 20px;">
+            <div>
+              <div class="setting-item-title">Enforce "Do Not Track"</div>
+              <div class="setting-item-desc">Send DNT request headers to all sites. (Always Active)</div>
+            </div>
+            <span style="color: var(--accent-color); font-weight: 600;">ACTIVE</span>
+          </div>
+          <div class="setting-item-toggle" style="margin-top: 20px;">
+            <div>
+              <div class="setting-item-title">In-Memory Incognito Core</div>
+              <div class="setting-item-desc">Cookies, Cache, and LocalStorage are isolated in memory and wiped upon exit. (Always Active)</div>
+            </div>
+            <span style="color: var(--accent-color); font-weight: 600;">ACTIVE</span>
+          </div>
+          <button id="settings-clear-data-btn" class="danger-btn" style="margin-top: 30px; padding: 12px 24px;">Wipe Current Browsing Session Data</button>
+        </div>
+
+        <!-- Bookmarks Manager panel -->
+        <div id="settings-bookmarks" class="settings-panel-section hidden">
+          <h3>Bookmarks Manager</h3>
+          <p class="settings-desc">Manage your saved bookmarks.</p>
+          <div id="settings-bookmarks-list" class="manager-item-list">
+            <!-- Filled via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Speed Dial Add/Edit Dialog -->
+  <div id="speed-dial-dialog" class="dialog-overlay hidden">
+    <div class="dialog-box">
+      <h3>Add Favorite Link</h3>
+      <div class="dialog-body">
+        <label>Name</label>
+        <input type="text" id="dialog-sd-name" class="styled-input" placeholder="e.g. GitHub" />
+        <label style="margin-top: 15px; display: block;">URL</label>
+        <input type="text" id="dialog-sd-url" class="styled-input" placeholder="e.g. https://github.com" />
+      </div>
+      <div class="dialog-footer">
+        <button id="dialog-sd-cancel" class="text-btn">Cancel</button>
+        <button id="dialog-sd-save" class="primary-btn">Save Link</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="themes.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
