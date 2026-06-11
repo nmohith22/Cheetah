@@ -33,6 +33,17 @@ ipcMain.on('set-third-party-cookies', (event, allow) => {
   allow3PC = allow;
 });
 
+// Suppress harmless script injection errors when webviews navigate away
+process.on('unhandledRejection', (reason, promise) => {
+  if (reason && reason.message && reason.message.includes('Script failed to execute')) return;
+  console.error('Unhandled Rejection:', reason);
+});
+
+// Fix MaxListenersExceeded warning across all internal WebContents
+app.on('web-contents-created', (event, contents) => {
+  contents.setMaxListeners(200);
+});
+
 async function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -179,6 +190,12 @@ async function createWindow() {
       };
 
       blocker.enableBlockingInSession(incognitoSession);
+      
+      // Clean up global IPC channels registered by Ghostery before enabling the second session
+      try { ipcMain.removeHandler('@ghostery/adblocker/inject-cosmetic-filters'); } catch(e) {}
+      try { ipcMain.removeHandler('@ghostery/adblocker/get-cosmetic-filters'); } catch(e) {}
+      try { ipcMain.removeHandler('@ghostery/adblocker/is-mutation-observer-enabled'); } catch(e) {}
+      
       blocker.enableBlockingInSession(standardSession);
       isAdblockerInitialized = true;
       console.log('Cheetah AdBlocker and Multi-Session Policies enabled successfully!');
