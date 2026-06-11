@@ -10,6 +10,10 @@ app.commandLine.appendSwitch('enable-zero-copy');
 app.commandLine.appendSwitch('disable-software-rasterizer');
 app.commandLine.appendSwitch('enable-features', 'CanvasOopRasterization,UseSkiaRenderer');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('ignore-gpu-blocklist'); // Force GPU acceleration
+app.commandLine.appendSwitch('enable-quic'); // Faster YouTube streaming
+app.commandLine.appendSwitch('enable-accelerated-video-decode'); // Hardware video decoding
+app.commandLine.appendSwitch('v8-cache-options', 'code'); // Aggressive JS caching
 
 let isAdblockerInitialized = false;
 let isShieldEnabled = true;
@@ -66,6 +70,14 @@ async function createWindow() {
           callback({});
           return;
         }
+        
+        // Instant hardware-level bypass for heavy video chunks to prevent network thread blocking
+        // This speeds up YouTube video loading massively by avoiding WASM/JS string evaluation on every stream chunk
+        if (details.url.includes('.googlevideo.com/videoplayback') || details.resourceType === 'media') {
+          callback({});
+          return;
+        }
+
         originalOnBeforeRequest(details, (res) => {
           // Unblock the network request instantly!
           callback(res);
