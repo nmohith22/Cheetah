@@ -257,6 +257,7 @@
 
             <!-- Clear Session -->
             <div class="sb-settings-section" style="border-bottom: none;">
+              <button id="view-shortcuts-btn" class="secondary-btn" style="width: 100%; margin-bottom: 12px; font-size: 13px; padding: 10px 16px;">View Keyboard Shortcuts</button>
               <button id="settings-clear-data-btn" class="danger-btn" style="width: 100%; font-size: 13px; padding: 10px 16px;">Wipe Local Preferences</button>
             </div>
           </div>
@@ -343,6 +344,23 @@
       <div class="dialog-footer">
         <button id="dialog-sd-cancel" class="text-btn">Cancel</button>
         <button id="dialog-sd-save" class="primary-btn">Save Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Dialog -->
+  <div id="shortcuts-dialog" class="dialog-overlay hidden">
+    <div class="dialog-box" style="width: 320px;">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="dialog-body" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+        <div class="shortcut-row"><span>New Tab</span><kbd>Ctrl + T</kbd></div>
+        <div class="shortcut-row"><span>Close Tab</span><kbd>Ctrl + W</kbd></div>
+        <div class="shortcut-row"><span>Reload Page</span><kbd>Ctrl + R</kbd> / <kbd>F5</kbd></div>
+        <div class="shortcut-row"><span>Search Bar</span><kbd>Click + Type</kbd></div>
+        <div class="shortcut-row"><span>Home Dashboard</span><kbd>Click Pinned Tab</kbd></div>
+      </div>
+      <div class="dialog-footer" style="margin-top: 24px;">
+        <button id="dialog-shortcuts-close" class="primary-btn" style="width: 100%;">Got it</button>
       </div>
     </div>
   </div>

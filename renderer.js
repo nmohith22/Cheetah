@@ -1382,6 +1382,19 @@ document.getElementById('settings-clear-data-btn').addEventListener('click', () 
   }
 });
 
+const shortcutsDialog = document.getElementById('shortcuts-dialog');
+const viewShortcutsBtn = document.getElementById('view-shortcuts-btn');
+const closeShortcutsBtn = document.getElementById('dialog-shortcuts-close');
+
+if (viewShortcutsBtn && shortcutsDialog && closeShortcutsBtn) {
+  viewShortcutsBtn.addEventListener('click', () => {
+    shortcutsDialog.classList.remove('hidden');
+  });
+  closeShortcutsBtn.addEventListener('click', () => {
+    shortcutsDialog.classList.add('hidden');
+  });
+}
+
 // Wallpaper Configuration Logic
 function applyWallpaper(url) {
   if (url) {

@@ -4,15 +4,15 @@ const fs = require('fs');
 const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 const fetch = require('cross-fetch');
 
-// Aggressive performance optimizations
+// Aggressive CPU and Memory optimizations
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('enable-features', 'CanvasOopRasterization,UseSkiaRenderer');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-quic');
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,CanvasOopRasterization,UseSkiaRenderer');
+app.commandLine.appendSwitch('disable-site-isolation-trials'); // Forces iframes into same process, slashing RAM overhead by up to 50MB per tab
+app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,CalculateNativeWinOcclusion'); // Kills hidden idle renderer processes
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-app.commandLine.appendSwitch('ignore-gpu-blocklist'); // Force GPU acceleration
-app.commandLine.appendSwitch('enable-quic'); // Faster YouTube streaming
-app.commandLine.appendSwitch('enable-accelerated-video-decode'); // Hardware video decoding
 app.commandLine.appendSwitch('v8-cache-options', 'code'); // Aggressive JS caching
 
 // AdBlock IPC Batching Buffer
