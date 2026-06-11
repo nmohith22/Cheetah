@@ -70,9 +70,32 @@ const sidebarPanels = {
 
 // Persistent Local Storage Variables
 let currentSearchEngine = localStorage.getItem('cheetah-search-engine') || 'https://duckduckgo.com/?q=';
+const changeWallpaperBtn = document.getElementById('change-wallpaper-btn');
+const wallpaperFileInput = document.getElementById('wallpaper-file-input');
+
+// Bookmarks variables
 let bookmarks = JSON.parse(localStorage.getItem('cheetah-bookmarks') || '[]');
 let history = JSON.parse(localStorage.getItem('cheetah-history') || '[]');
-let speedDials = JSON.parse(localStorage.getItem('cheetah-speed-dials') || '[]');
+let speedDials = JSON.parse(localStorage.getItem('cheetah-speed-dials')) || [
+  { name: 'YouTube', url: 'https://youtube.com' },
+  { name: 'GitHub', url: 'https://github.com' },
+  { name: 'Reddit', url: 'https://reddit.com' },
+  { name: 'X / Twitter', url: 'https://twitter.com' },
+  { name: 'Wikipedia', url: 'https://wikipedia.org' },
+  { name: 'Twitch', url: 'https://twitch.tv' },
+  { name: 'Netflix', url: 'https://netflix.com' },
+  { name: 'ChatGPT', url: 'https://chat.openai.com' }
+];
+
+// If they previously had an empty array saved, populate it
+if (speedDials.length === 0) {
+  speedDials = [
+    { name: 'YouTube', url: 'https://youtube.com' },
+    { name: 'GitHub', url: 'https://github.com' },
+    { name: 'Reddit', url: 'https://reddit.com' },
+    { name: 'X / Twitter', url: 'https://twitter.com' }
+  ];
+}
 let isShieldEnabled = localStorage.getItem('cheetah-shield-enabled') !== 'false';
 
 // Default Speed Dials if empty
@@ -1298,12 +1321,72 @@ document.getElementById('settings-clear-data-btn').addEventListener('click', () 
   }
 });
 
+// Wallpaper Configuration Logic
+function applyWallpaper(url) {
+  if (url) {
+    newtabView.style.backgroundImage = `url(${url})`;
+    newtabView.style.backgroundSize = 'cover';
+    newtabView.style.backgroundPosition = 'center';
+    newtabView.classList.add('has-wallpaper');
+  } else {
+    newtabView.style.backgroundImage = 'none';
+    newtabView.classList.remove('has-wallpaper');
+  }
+}
+
+if (changeWallpaperBtn && wallpaperFileInput) {
+  changeWallpaperBtn.addEventListener('click', () => {
+    wallpaperFileInput.click();
+  });
+
+  wallpaperFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        
+        // Downscale to 1080p max to save memory and localstorage space
+        const maxDim = 1920;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; } 
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        
+        const base64Url = canvas.toDataURL('image/jpeg', 0.85);
+        try {
+          localStorage.setItem('cheetah-wallpaper', base64Url);
+          applyWallpaper(base64Url);
+        } catch(err) {
+          alert('Image is too large to save as wallpaper. Try a smaller image.');
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Apply Saved Theme on Boot
 const savedTheme = localStorage.getItem('cheetah-theme');
 if (savedTheme) {
   const themeObj = cheetahThemes.find(t => t.name === savedTheme);
   if (themeObj) applyTheme(themeObj);
 }
+
+// Apply Saved Wallpaper on Boot
+const savedWallpaper = localStorage.getItem('cheetah-wallpaper');
+if (savedWallpaper) applyWallpaper(savedWallpaper);
 
 // Initialize components
 createTab('cheetah://newtab', true);
