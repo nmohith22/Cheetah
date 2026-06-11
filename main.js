@@ -35,6 +35,7 @@ async function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.webContents.setMaxListeners(100);
 
   // Enforce an entirely in-memory, incognito session for all tabs
   const incognitoSession = session.fromPartition('incognito');
@@ -59,7 +60,7 @@ async function createWindow() {
       }
 
       // Intercept blocked requests and notify the renderer process
-      const originalOnBeforeRequest = blocker.onBeforeRequest;
+      const originalOnBeforeRequest = blocker.onBeforeRequest.bind(blocker);
       blocker.onBeforeRequest = (details, callback) => {
         if (!isShieldEnabled) {
           callback({});

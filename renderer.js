@@ -190,6 +190,10 @@ function attachWebviewListeners(tabData) {
   webview.addEventListener('new-window', (e) => {
     createTab(e.url);
   });
+
+  webview.addEventListener('console-message', (e) => {
+    console.log(`[Tab ${id} Console] [Level ${e.level}] ${e.message} (${e.sourceId}:${e.line})`);
+  });
 }
 
 function sleepTab(tab) {
@@ -218,7 +222,7 @@ function wakeTab(tab) {
   webview.src = tab.sleepUrl || 'https://duckduckgo.com';
   webview.className = 'webview-tab';
   webview.allowpopups = true;
-  webview.webpreferences = "contextIsolation=yes";
+  webview.setAttribute('webpreferences', 'contextIsolation=yes');
   webview.partition = "incognito";
   
   tabsContainer.appendChild(webview);
@@ -271,7 +275,7 @@ function createTab(url = 'cheetah://newtab') {
   webview.src = url.startsWith('cheetah://') ? 'about:blank' : url;
   webview.className = 'webview-tab';
   webview.allowpopups = true;
-  webview.webpreferences = "contextIsolation=yes";
+  webview.setAttribute('webpreferences', 'contextIsolation=yes');
   webview.partition = "incognito"; // Force fully in-memory private session
 
   tabsContainer.appendChild(webview);
