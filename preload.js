@@ -4,9 +4,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFullscreenChange: (callback) => ipcRenderer.on('fullscreen-change', (_event, isFullscreen) => callback(isFullscreen)),
   createNewWindow: () => ipcRenderer.send('new-window'),
   
-  // Ad blocker
+  // Ad blocker and Privacy
   onAdBlockedBatch: (callback) => ipcRenderer.on('ad-blocked-batch', (_event, data) => callback(data)),
   setShieldEnabled: (enabled) => ipcRenderer.send('set-shield-enabled', enabled),
+  setThirdPartyCookies: (enabled) => ipcRenderer.send('set-third-party-cookies', enabled),
   
   // Downloads IPC channels
   onDownloadStarted: (callback) => ipcRenderer.on('download-started', (_event, data) => callback(data)),

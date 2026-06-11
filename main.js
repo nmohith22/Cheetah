@@ -28,6 +28,11 @@ ipcMain.on('set-shield-enabled', (event, enabled) => {
   isShieldEnabled = enabled;
 });
 
+let allow3PC = false;
+ipcMain.on('set-third-party-cookies', (event, allow) => {
+  allow3PC = allow;
+});
+
 async function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -45,16 +50,89 @@ async function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.webContents.setMaxListeners(100);
 
-  // Enforce an entirely in-memory, incognito session for all tabs
+  // Set up both partitions
   const incognitoSession = session.fromPartition('incognito');
+  const standardSession = session.fromPartition('persist:standard');
 
   // Only initialize session-level hooks once
   if (!isAdblockerInitialized) {
-    // Privacy: Enforce Do Not Track (DNT)
-    incognitoSession.webRequest.onBeforeSendHeaders((details, callback) => {
-      details.requestHeaders['DNT'] = '1';
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
-    });
+    const setupSessionHooks = (sess) => {
+      // Privacy: Enforce Do Not Track (DNT) and aggressively block 3rd-Party Cookies
+      sess.webRequest.onBeforeSendHeaders((details, callback) => {
+        details.requestHeaders['DNT'] = '1';
+        
+        if (!allow3PC && details.requestHeaders['Cookie']) {
+          try {
+            const reqHost = new URL(details.url).hostname;
+            const refUrl = details.referrer || (details.requestHeaders['Origin'] ? details.requestHeaders['Origin'] : '');
+            if (refUrl) {
+              const refHost = new URL(refUrl).hostname;
+              const cleanReq = reqHost.replace(/^www\./i, '');
+              const cleanRef = refHost.replace(/^www\./i, '');
+              // If domain mismatch, strictly drop the tracking cookie
+              if (!cleanReq.endsWith(cleanRef) && !cleanRef.endsWith(cleanReq)) {
+                delete details.requestHeaders['Cookie'];
+              }
+            }
+          } catch(e) {}
+        }
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+      });
+
+      // Intercept Set-Cookie responses to prevent writing 3rd party cookies
+      sess.webRequest.onHeadersReceived((details, callback) => {
+        if (!allow3PC && details.responseHeaders) {
+          const hasSetCookie = details.responseHeaders['Set-Cookie'] || details.responseHeaders['set-cookie'];
+          if (hasSetCookie) {
+            try {
+              const reqHost = new URL(details.url).hostname;
+              const refUrl = details.referrer || '';
+              if (refUrl) {
+                const refHost = new URL(refUrl).hostname;
+                const cleanReq = reqHost.replace(/^www\./i, '');
+                const cleanRef = refHost.replace(/^www\./i, '');
+                if (!cleanReq.endsWith(cleanRef) && !cleanRef.endsWith(cleanReq)) {
+                  delete details.responseHeaders['Set-Cookie'];
+                  delete details.responseHeaders['set-cookie'];
+                }
+              }
+            } catch(e) {}
+          }
+        }
+        callback({ cancel: false, responseHeaders: details.responseHeaders });
+      });
+
+      // Set up native Downloads management
+      sess.on('will-download', (event, item, webContents) => {
+        const filename = item.getFilename();
+        const totalBytes = item.getTotalBytes();
+        const downloadId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+
+        activeDownloads.set(downloadId, item);
+
+        webContents.send('download-started', {
+          id: downloadId,
+          filename,
+          totalBytes
+        });
+
+        item.on('updated', (ev, state) => {
+          if (state === 'interrupted') {
+            webContents.send('download-updated', { id: downloadId, state: 'interrupted', receivedBytes: item.getReceivedBytes() });
+          } else if (state === 'progressing') {
+            webContents.send('download-updated', { id: downloadId, state: item.isPaused() ? 'paused' : 'progressing', receivedBytes: item.getReceivedBytes() });
+          }
+        });
+
+        item.once('done', (ev, state) => {
+          activeDownloads.delete(downloadId);
+          webContents.send('download-done', { id: downloadId, state, savePath: item.getSavePath(), receivedBytes: item.getReceivedBytes() });
+        });
+      });
+    };
+
+    setupSessionHooks(incognitoSession);
+    setupSessionHooks(standardSession);
 
     // Set up Ad Blocker with caching
     try {
@@ -67,7 +145,6 @@ async function createWindow() {
         fs.writeFileSync(cachePath, blocker.serialize());
       }
 
-      // Intercept blocked requests and notify the renderer process
       const originalOnBeforeRequest = blocker.onBeforeRequest.bind(blocker);
       blocker.onBeforeRequest = (details, callback) => {
         if (!isShieldEnabled) {
@@ -75,18 +152,13 @@ async function createWindow() {
           return;
         }
         
-        // Instant hardware-level bypass for heavy video chunks to prevent network thread blocking
-        // This speeds up YouTube video loading massively by avoiding WASM/JS string evaluation on every stream chunk
         if (details.url.includes('.googlevideo.com/videoplayback') || details.resourceType === 'media') {
           callback({});
           return;
         }
 
         originalOnBeforeRequest(details, (res) => {
-          // Unblock the network request instantly!
           callback(res);
-
-          // Relay telemetry asynchronously in batches to prevent IPC flooding and UI thread locking
           if (res.cancel || res.redirectURL) {
             adBlockBuffer.push({ url: details.url, tabId: details.webContentsId });
             if (!adBlockTimer) {
@@ -97,13 +169,9 @@ async function createWindow() {
                 try {
                   const windows = BrowserWindow.getAllWindows();
                   for (const win of windows) {
-                    if (!win.isDestroyed()) {
-                      win.webContents.send('ad-blocked-batch', payload);
-                    }
+                    if (!win.isDestroyed()) win.webContents.send('ad-blocked-batch', payload);
                   }
-                } catch (err) {
-                  console.error('Error sending adblock details to renderer:', err);
-                }
+                } catch (err) {}
               }, 250);
             }
           }
@@ -111,52 +179,12 @@ async function createWindow() {
       };
 
       blocker.enableBlockingInSession(incognitoSession);
+      blocker.enableBlockingInSession(standardSession);
       isAdblockerInitialized = true;
-      console.log('Cheetah AdBlocker enabled successfully on Incognito Session!');
+      console.log('Cheetah AdBlocker and Multi-Session Policies enabled successfully!');
     } catch (err) {
       console.error('Failed to initialize AdBlocker:', err);
     }
-
-    // Set up native Downloads management inside incognito partition
-    incognitoSession.on('will-download', (event, item, webContents) => {
-      const filename = item.getFilename();
-      const totalBytes = item.getTotalBytes();
-      const downloadId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-
-      activeDownloads.set(downloadId, item);
-
-      webContents.send('download-started', {
-        id: downloadId,
-        filename,
-        totalBytes
-      });
-
-      item.on('updated', (ev, state) => {
-        if (state === 'interrupted') {
-          webContents.send('download-updated', {
-            id: downloadId,
-            state: 'interrupted',
-            receivedBytes: item.getReceivedBytes()
-          });
-        } else if (state === 'progressing') {
-          webContents.send('download-updated', {
-            id: downloadId,
-            state: item.isPaused() ? 'paused' : 'progressing',
-            receivedBytes: item.getReceivedBytes()
-          });
-        }
-      });
-
-      item.once('done', (ev, state) => {
-        activeDownloads.delete(downloadId);
-        webContents.send('download-done', {
-          id: downloadId,
-          state, // 'completed', 'cancelled', 'interrupted'
-          savePath: item.getSavePath(),
-          receivedBytes: item.getReceivedBytes()
-        });
-      });
-    });
   }
 
   // Handle IPC for Multi-Window

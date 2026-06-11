@@ -210,13 +210,34 @@
             <!-- Protections -->
             <div class="sb-settings-section">
               <h4>Privacy Protections</h4>
-              <div class="sb-toggle-row">
+              
+              <div class="sb-toggle-row" style="margin-bottom: 12px; display: block;">
+                <div class="sb-toggle-title" style="margin-bottom: 4px;">Browsing Mode</div>
+                <select id="privacy-mode-select" class="styled-select" style="font-size: 13px; padding: 8px; width: 100%;">
+                  <option value="strict">Strict (Incognito, No History)</option>
+                  <option value="standard">Standard (Saves History)</option>
+                </select>
+                <div class="sb-toggle-desc" style="margin-top: 6px;">Strict runs memory-only and fully dumps data on exit.</div>
+              </div>
+
+              <div class="sb-toggle-row" style="margin-bottom: 12px;">
                 <div class="sb-toggle-details">
                   <div class="sb-toggle-title">Ad & Tracker Shield</div>
                   <div class="sb-toggle-desc">Blocks ads, tracking scripts, and cryptominers.</div>
                 </div>
                 <label class="switch-toggle">
                   <input type="checkbox" id="settings-shield-toggle" checked>
+                  <span class="slider-round"></span>
+                </label>
+              </div>
+
+              <div class="sb-toggle-row">
+                <div class="sb-toggle-details">
+                  <div class="sb-toggle-title">3rd-Party Cookies</div>
+                  <div class="sb-toggle-desc">Not recommended. Reduces privacy.</div>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="settings-3pc-toggle">
                   <span class="slider-round"></span>
                 </label>
               </div>

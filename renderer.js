@@ -70,12 +70,24 @@ const sidebarPanels = {
 
 // Persistent Local Storage Variables
 let currentSearchEngine = localStorage.getItem('cheetah-search-engine') || 'https://duckduckgo.com/?q=';
+let privacyMode = localStorage.getItem('cheetah-privacy-mode') || 'strict';
+let allow3PC = localStorage.getItem('cheetah-allow-3pc') === 'true';
+
 const changeWallpaperBtn = document.getElementById('change-wallpaper-btn');
 const wallpaperFileInput = document.getElementById('wallpaper-file-input');
 
 // Bookmarks variables
 let bookmarks = JSON.parse(localStorage.getItem('cheetah-bookmarks') || '[]');
 let history = JSON.parse(localStorage.getItem('cheetah-history') || '[]');
+
+// Enforce History Dump for Strict Mode immediately on boot
+if (privacyMode === 'strict') {
+  localStorage.removeItem('cheetah-history');
+  history = [];
+}
+
+// Initialize 3rd Party Cookie preference with engine
+window.electronAPI.setThirdPartyCookies(allow3PC);
 let speedDials = JSON.parse(localStorage.getItem('cheetah-speed-dials')) || [
   { name: 'YouTube', url: 'https://youtube.com' },
   { name: 'GitHub', url: 'https://github.com' },
@@ -299,7 +311,7 @@ function createTab(url = 'cheetah://newtab', isPinned = false) {
   webview.className = 'webview-tab';
   webview.allowpopups = true;
   webview.setAttribute('webpreferences', 'contextIsolation=yes');
-  webview.partition = "incognito"; // Force fully in-memory private session
+  webview.partition = privacyMode === 'strict' ? 'incognito' : 'persist:standard';
 
   tabsContainer.appendChild(webview);
 
@@ -857,6 +869,7 @@ document.getElementById('sb-add-bookmark-btn').addEventListener('click', () => {
 // -------------------------------------------------------------
 
 function addHistoryEntry(title, url) {
+  if (privacyMode === 'strict') return; // Strict mode never saves history
   if (url.startsWith('cheetah://newtab') || url.startsWith('about:blank') || !title || title === 'Loading...') return;
   
   // Dedup history
@@ -926,9 +939,9 @@ function deleteHistoryEntry(timestamp) {
 document.getElementById('sb-history-search').addEventListener('input', renderHistoryPanel);
 
 document.getElementById('sb-clear-history-btn').addEventListener('click', () => {
-  if (confirm('Clear all browsing history?')) {
+  if (confirm('Permanently delete all history? This cannot be undone.')) {
     history = [];
-    localStorage.setItem('cheetah-history', '[]');
+    localStorage.removeItem('cheetah-history');
     renderHistoryPanel();
   }
 });
@@ -1240,6 +1253,36 @@ const searchEngineSelect = document.getElementById('search-engine-select');
 const customSearchContainer = document.getElementById('custom-search-container');
 const customSearchInput = document.getElementById('custom-search-input');
 const saveCustomSearch = document.getElementById('save-custom-search');
+
+// Privacy Settings Integration
+const privacyModeSelect = document.getElementById('privacy-mode-select');
+if (privacyModeSelect) {
+  privacyModeSelect.value = privacyMode;
+  privacyModeSelect.addEventListener('change', () => {
+    privacyMode = privacyModeSelect.value;
+    localStorage.setItem('cheetah-privacy-mode', privacyMode);
+    
+    if (privacyMode === 'strict') {
+      history = [];
+      localStorage.removeItem('cheetah-history');
+      renderHistoryPanel();
+    }
+    
+    if (confirm('Browsing mode changed. The browser must restart to safely apply the new memory and session partitioning. Restart now?')) {
+      location.reload();
+    }
+  });
+}
+
+const toggle3pc = document.getElementById('settings-3pc-toggle');
+if (toggle3pc) {
+  toggle3pc.checked = allow3PC;
+  toggle3pc.addEventListener('change', () => {
+    allow3PC = toggle3pc.checked;
+    localStorage.setItem('cheetah-allow-3pc', allow3PC.toString());
+    window.electronAPI.setThirdPartyCookies(allow3PC);
+  });
+}
 
 Array.from(searchEngineSelect.options).forEach(opt => {
   if (opt.value === currentSearchEngine) searchEngineSelect.value = currentSearchEngine;
