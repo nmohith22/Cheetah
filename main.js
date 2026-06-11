@@ -15,6 +15,10 @@ app.commandLine.appendSwitch('enable-quic'); // Faster YouTube streaming
 app.commandLine.appendSwitch('enable-accelerated-video-decode'); // Hardware video decoding
 app.commandLine.appendSwitch('v8-cache-options', 'code'); // Aggressive JS caching
 
+// AdBlock IPC Batching Buffer
+let adBlockBuffer = [];
+let adBlockTimer = null;
+
 let isAdblockerInitialized = false;
 let isShieldEnabled = true;
 const activeDownloads = new Map();
@@ -82,20 +86,26 @@ async function createWindow() {
           // Unblock the network request instantly!
           callback(res);
 
-          // Relay telemetry asynchronously to avoid blocking Chromium's network loop
+          // Relay telemetry asynchronously in batches to prevent IPC flooding and UI thread locking
           if (res.cancel || res.redirectURL) {
-            process.nextTick(() => {
-              try {
-                const windows = BrowserWindow.getAllWindows();
-                for (const win of windows) {
-                  if (!win.isDestroyed()) {
-                    win.webContents.send('ad-blocked', { url: details.url, tabId: details.webContentsId });
+            adBlockBuffer.push({ url: details.url, tabId: details.webContentsId });
+            if (!adBlockTimer) {
+              adBlockTimer = setTimeout(() => {
+                const payload = [...adBlockBuffer];
+                adBlockBuffer = [];
+                adBlockTimer = null;
+                try {
+                  const windows = BrowserWindow.getAllWindows();
+                  for (const win of windows) {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('ad-blocked-batch', payload);
+                    }
                   }
+                } catch (err) {
+                  console.error('Error sending adblock details to renderer:', err);
                 }
-              } catch (err) {
-                console.error('Error sending adblock details to renderer:', err);
-              }
-            });
+              }, 250);
+            }
           }
         });
       };

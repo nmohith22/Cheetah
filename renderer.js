@@ -614,43 +614,53 @@ function updateShieldColor() {
 shieldCheckbox.addEventListener('change', () => toggleShield(shieldCheckbox.checked));
 if (settingsShieldCheckbox) settingsShieldCheckbox.addEventListener('change', () => toggleShield(settingsShieldCheckbox.checked));
 
-// Listen for block events relayed from Main Process
-window.electronAPI.onAdBlocked((data) => {
-  const { url, tabId } = data;
-  const tab = tabs.find(t => t.webContentsId === tabId);
-  if (tab) {
-    tab.blockedCount++;
-    
-    // Extract tracker domain
-    let domain = url;
-    try { domain = new URL(url).hostname; } catch(err) {}
-    
-    // Filter out first-party requests (e.g., youtube blocking its own background tracking while on youtube)
-    let tabDomain = '';
-    try { tabDomain = new URL(tab.url).hostname; } catch(err) {}
-    
-    let isFirstParty = false;
-    if (tabDomain && domain) {
-      const cleanTabDomain = tabDomain.replace(/^www\./i, '');
-      const cleanDomain = domain.replace(/^www\./i, '');
-      isFirstParty = cleanDomain === cleanTabDomain || cleanDomain.endsWith('.' + cleanTabDomain) || cleanTabDomain.endsWith('.' + cleanDomain);
-    }
-    
-    if (!isFirstParty && domain) {
-      if (!tab.blockedTrackers.includes(domain)) {
-        tab.blockedTrackers.push(domain);
+// Listen for batched block events relayed from Main Process
+window.electronAPI.onAdBlockedBatch((batch) => {
+  let lifetimeAdded = 0;
+  let updateUIRequired = false;
+
+  batch.forEach(data => {
+    const { url, tabId } = data;
+    const tab = tabs.find(t => t.webContentsId === tabId);
+    if (tab) {
+      tab.blockedCount++;
+      lifetimeAdded++;
+      
+      // Extract tracker domain
+      let domain = url;
+      try { domain = new URL(url).hostname; } catch(err) {}
+      
+      // Filter out first-party requests
+      let tabDomain = '';
+      try { tabDomain = new URL(tab.url).hostname; } catch(err) {}
+      
+      let isFirstParty = false;
+      if (tabDomain && domain) {
+        const cleanTabDomain = tabDomain.replace(/^www\./i, '');
+        const cleanDomain = domain.replace(/^www\./i, '');
+        isFirstParty = cleanDomain === cleanTabDomain || cleanDomain.endsWith('.' + cleanTabDomain) || cleanTabDomain.endsWith('.' + cleanDomain);
+      }
+      
+      if (!isFirstParty && domain) {
+        if (!tab.blockedTrackers.includes(domain)) {
+          tab.blockedTrackers.push(domain);
+        }
+      }
+      
+      if (activeTabId === tab.id) {
+        updateUIRequired = true;
       }
     }
-    
-    // Increment lifetime blocker stat
+  });
+
+  if (lifetimeAdded > 0) {
     let lifetime = parseInt(localStorage.getItem('cheetah-lifetime-blocked') || '0');
-    lifetime++;
+    lifetime += lifetimeAdded;
     localStorage.setItem('cheetah-lifetime-blocked', lifetime.toString());
-    
-    // Update live indicators if it's the active tab
-    if (activeTabId === tab.id) {
-      updateShieldUI();
-    }
+  }
+
+  if (updateUIRequired) {
+    updateShieldUI();
   }
 });
 

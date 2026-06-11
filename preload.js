@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createNewWindow: () => ipcRenderer.send('new-window'),
   
   // Ad blocker
-  onAdBlocked: (callback) => ipcRenderer.on('ad-blocked', (_event, data) => callback(data)),
+  onAdBlockedBatch: (callback) => ipcRenderer.on('ad-blocked-batch', (_event, data) => callback(data)),
   setShieldEnabled: (enabled) => ipcRenderer.send('set-shield-enabled', enabled),
   
   // Downloads IPC channels
