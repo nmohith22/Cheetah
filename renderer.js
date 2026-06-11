@@ -57,8 +57,7 @@ const sidebarTabs = {
   bookmarks: document.getElementById('sb-tab-bookmarks'),
   history: document.getElementById('sb-tab-history'),
   downloads: document.getElementById('sb-tab-downloads'),
-  themes: document.getElementById('sb-tab-themes'),
-  settings: document.getElementById('sb-tab-settings')
+  themes: document.getElementById('sb-tab-themes')
 };
 
 const sidebarPanels = {
