@@ -19,6 +19,10 @@
   scrollbar-color: var(--input-border) transparent;
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
