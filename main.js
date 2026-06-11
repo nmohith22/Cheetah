@@ -66,17 +66,24 @@ async function createWindow() {
           return;
         }
         originalOnBeforeRequest(details, (res) => {
-          if (res.cancel || res.redirectURL) {
-            try {
-              const windows = BrowserWindow.getAllWindows();
-              for (const win of windows) {
-                win.webContents.send('ad-blocked', { url: details.url, tabId: details.webContentsId });
-              }
-            } catch (err) {
-              console.error('Error sending adblock details to renderer:', err);
-            }
-          }
+          // Unblock the network request instantly!
           callback(res);
+
+          // Relay telemetry asynchronously to avoid blocking Chromium's network loop
+          if (res.cancel || res.redirectURL) {
+            process.nextTick(() => {
+              try {
+                const windows = BrowserWindow.getAllWindows();
+                for (const win of windows) {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('ad-blocked', { url: details.url, tabId: details.webContentsId });
+                  }
+                }
+              } catch (err) {
+                console.error('Error sending adblock details to renderer:', err);
+              }
+            });
+          }
         });
       };
 
