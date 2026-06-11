@@ -266,7 +266,7 @@ function updateMemorySaverUI() {
 // Tab Management
 // -------------------------------------------------------------
 
-function createTab(url = 'cheetah://newtab') {
+function createTab(url = 'cheetah://newtab', isPinned = false) {
   tabCounter++;
   const id = `tab-${tabCounter}`;
   
@@ -289,7 +289,8 @@ function createTab(url = 'cheetah://newtab') {
     blockedCount: 0,
     blockedTrackers: [],
     lastActiveTime: Date.now(),
-    isAsleep: false
+    isAsleep: false,
+    isPinned
   };
   
   tabs.push(tabData);
@@ -344,6 +345,7 @@ function closeTab(id, e) {
   
   const tabIndex = tabs.findIndex(t => t.id === id);
   if (tabIndex === -1) return;
+  if (tabs[tabIndex].isPinned) return;
 
   const tab = tabs[tabIndex];
   if (tab.webview) tab.webview.remove();
@@ -363,37 +365,41 @@ function renderTabBar() {
   tabsList.innerHTML = '';
   tabs.forEach(tab => {
     const tabItem = document.createElement('div');
-    tabItem.className = `tab-item ${tab.id === activeTabId ? 'active' : ''} ${tab.isAsleep ? 'asleep' : ''}`;
+    tabItem.className = `tab-item ${tab.id === activeTabId ? 'active' : ''} ${tab.isAsleep ? 'asleep' : ''} ${tab.isPinned ? 'pinned' : ''}`;
     tabItem.onclick = () => switchTab(tab.id);
 
-    // Favicon image or fallback
-    const fav = document.createElement('img');
-    fav.className = 'tab-favicon';
-    
-    if (tab.url.startsWith('cheetah://newtab') || tab.url.startsWith('about:')) {
-      fav.className += ' empty-fav';
-      fav.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>';
+    if (tab.isPinned) {
+      tabItem.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="margin: auto;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>';
     } else {
-      let domain = '';
-      try { domain = new URL(tab.url).hostname; } catch(err) {}
-      fav.src = `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
-      fav.onerror = () => {
+      // Favicon image or fallback
+      const fav = document.createElement('img');
+      fav.className = 'tab-favicon';
+      
+      if (tab.url.startsWith('cheetah://newtab') || tab.url.startsWith('about:')) {
+        fav.className += ' empty-fav';
         fav.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>';
-      };
+      } else {
+        let domain = '';
+        try { domain = new URL(tab.url).hostname; } catch(err) {}
+        fav.src = `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+        fav.onerror = () => {
+          fav.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>';
+        };
+      }
+
+      const title = document.createElement('span');
+      title.className = 'tab-title-text';
+      title.innerText = tab.url.startsWith('cheetah://newtab') ? 'New Tab' : tab.title;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'tab-close-btn';
+      closeBtn.innerText = '×';
+      closeBtn.onclick = (e) => closeTab(tab.id, e);
+
+      tabItem.appendChild(fav);
+      tabItem.appendChild(title);
+      tabItem.appendChild(closeBtn);
     }
-
-    const title = document.createElement('span');
-    title.className = 'tab-title-text';
-    title.innerText = tab.url.startsWith('cheetah://newtab') ? 'New Tab' : tab.title;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'tab-close-btn';
-    closeBtn.innerText = '×';
-    closeBtn.onclick = (e) => closeTab(tab.id, e);
-
-    tabItem.appendChild(fav);
-    tabItem.appendChild(title);
-    tabItem.appendChild(closeBtn);
     tabsList.appendChild(tabItem);
   });
 }
@@ -476,7 +482,12 @@ reloadBtn.addEventListener('click', () => {
 });
 
 homeBtn.addEventListener('click', () => {
-  navigateActiveTab('cheetah://newtab');
+  const pinnedTab = tabs.find(t => t.isPinned);
+  if (pinnedTab) {
+    switchTab(pinnedTab.id);
+  } else {
+    navigateActiveTab('cheetah://newtab');
+  }
 });
 
 addTabBtn.addEventListener('click', () => {
@@ -506,6 +517,7 @@ function navigateActiveTab(url) {
   if (!activeTab) return;
 
   if (url === 'cheetah://newtab') {
+    if (activeTab.isPinned) return;
     activeTab.url = 'cheetah://newtab';
     activeTab.title = 'New Tab';
     if (activeTab.webview) activeTab.webview.src = 'about:blank';
@@ -518,6 +530,13 @@ function navigateActiveTab(url) {
         url = currentSearchEngine + encodeURIComponent(url);
       }
     }
+    
+    // If active tab is the pinned launcher tab, launch into a NEW tab!
+    if (activeTab.isPinned) {
+      createTab(url);
+      return;
+    }
+
     activeTab.url = url;
     if (activeTab.isAsleep) {
       activeTab.sleepUrl = url;
@@ -1277,7 +1296,7 @@ if (savedTheme) {
 }
 
 // Initialize components
-createTab();
+createTab('cheetah://newtab', true);
 renderSpeedDials();
 renderBookmarksBar();
 syncSearchEngineLabel();
