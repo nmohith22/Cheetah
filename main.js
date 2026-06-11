@@ -40,8 +40,25 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Fix MaxListenersExceeded warning across all internal WebContents
+// And register global hotkeys that work regardless of webview focus
 app.on('web-contents-created', (event, contents) => {
   contents.setMaxListeners(200);
+  
+  contents.on('before-input-event', (event, input) => {
+    const isCmdOrCtrl = input.control || input.meta;
+    const key = input.key.toLowerCase();
+    
+    if (isCmdOrCtrl && key === 't') {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('shortcut-new-tab');
+      event.preventDefault();
+    } else if (isCmdOrCtrl && key === 'w') {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('shortcut-close-tab');
+      event.preventDefault();
+    } else if ((isCmdOrCtrl && key === 'r') || input.key === 'F5') {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('shortcut-reload');
+      event.preventDefault();
+    }
+  });
 });
 
 async function createWindow() {

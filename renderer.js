@@ -370,13 +370,17 @@ function switchTab(id) {
         if (tab.webview) tab.webview.classList.remove('active');
         newtabView.classList.remove('hidden');
         urlInput.value = '';
+        // Smart sidebar auto-open for Home Tab
+        if (!sidebar.classList.contains('open')) openSidebar(typeof activeSidebarSection !== 'undefined' ? activeSidebarSection : 'settings');
       } else {
         if (tab.webview) tab.webview.classList.add('active');
         newtabView.classList.add('hidden');
         urlInput.value = tab.url;
+        // Smart sidebar auto-collapse when navigating away
+        if (sidebar.classList.contains('open')) closeSidebar();
         try { tab.webview.focus(); } catch(e) {}
       }
-      document.title = tab.url.startsWith('cheetah://newtab') ? 'Cheetah - New Tab' : `Cheetah - ${tab.title}`;
+      document.title = tab.url.startsWith('cheetah://newtab') ? 'Cheetah - Home' : `Cheetah - ${tab.title}`;
     } else {
       if (tab.webview) tab.webview.classList.remove('active');
     }
@@ -1444,6 +1448,20 @@ if (savedTheme) {
 // Apply Saved Wallpaper on Boot
 const savedWallpaper = localStorage.getItem('cheetah-wallpaper');
 if (savedWallpaper) applyWallpaper(savedWallpaper);
+
+// Keyboard Shortcuts Integration
+if (window.electronAPI.onShortcutNewTab) {
+  window.electronAPI.onShortcutNewTab(() => createTab('cheetah://newtab'));
+  window.electronAPI.onShortcutCloseTab(() => {
+    if (activeTabId) closeTab(activeTabId);
+  });
+  window.electronAPI.onShortcutReload(() => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab && activeTab.webview && !activeTab.url.startsWith('cheetah://')) {
+      activeTab.webview.reload();
+    }
+  });
+}
 
 // Initialize components
 createTab('cheetah://newtab', true);
