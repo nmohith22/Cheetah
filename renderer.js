@@ -602,8 +602,21 @@ window.electronAPI.onAdBlocked((data) => {
     let domain = url;
     try { domain = new URL(url).hostname; } catch(err) {}
     
-    if (!tab.blockedTrackers.includes(domain)) {
-      tab.blockedTrackers.push(domain);
+    // Filter out first-party requests (e.g., youtube blocking its own background tracking while on youtube)
+    let tabDomain = '';
+    try { tabDomain = new URL(tab.url).hostname; } catch(err) {}
+    
+    let isFirstParty = false;
+    if (tabDomain && domain) {
+      const cleanTabDomain = tabDomain.replace(/^www\./i, '');
+      const cleanDomain = domain.replace(/^www\./i, '');
+      isFirstParty = cleanDomain === cleanTabDomain || cleanDomain.endsWith('.' + cleanTabDomain) || cleanTabDomain.endsWith('.' + cleanDomain);
+    }
+    
+    if (!isFirstParty && domain) {
+      if (!tab.blockedTrackers.includes(domain)) {
+        tab.blockedTrackers.push(domain);
+      }
     }
     
     // Increment lifetime blocker stat
