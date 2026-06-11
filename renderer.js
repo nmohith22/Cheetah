@@ -3,6 +3,7 @@ let tabs = [];
 let activeTabId = null;
 let tabCounter = 0;
 let isFullscreen = false;
+let activeSidebarSection = 'bookmarks'; // default open section
 
 // DOM Elements - Navigation & Tabbar
 const tabsList = document.getElementById('tabs-list');
@@ -20,7 +21,6 @@ const shieldStatusBtn = document.getElementById('shield-status-btn');
 const shieldCountBadge = document.getElementById('shield-count-badge');
 const bookmarkPageBtn = document.getElementById('bookmark-page-btn');
 const searchSettingsBtn = document.getElementById('search-settings-btn');
-const downloadsCountBadge = document.getElementById('downloads-count-badge');
 
 // DOM Elements - Bookmarks Bar
 const bookmarksBar = document.getElementById('bookmarks-bar');
@@ -36,14 +36,38 @@ const ntEngineName = document.getElementById('newtab-engine-name');
 const speedDialGrid = document.getElementById('speed-dial-grid');
 const statAdsBlocked = document.getElementById('stat-ads-blocked');
 
-// DOM Elements - Modals
+// DOM Elements - Modals & Dialogs
 const tabModal = document.getElementById('tab-modal');
 const tabGrid = document.getElementById('tab-grid');
 const newTabModalBtn = document.getElementById('new-tab-btn');
 const newWindowBtn = document.getElementById('new-window-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
-const settingsModal = document.getElementById('settings-modal');
-const closeSettingsBtn = document.getElementById('close-settings-btn');
+const sdDialog = document.getElementById('speed-dial-dialog');
+const sdNameInput = document.getElementById('dialog-sd-name');
+const sdUrlInput = document.getElementById('dialog-sd-url');
+
+// DOM Elements - Collapsible Sidebar
+const sidebar = document.getElementById('sidebar');
+const sidebarTitle = document.getElementById('sidebar-title');
+const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+const sbDownloadsBadge = document.getElementById('sb-downloads-badge');
+
+// Sidebar Tabs & Panels Maps
+const sidebarTabs = {
+  bookmarks: document.getElementById('sb-tab-bookmarks'),
+  history: document.getElementById('sb-tab-history'),
+  downloads: document.getElementById('sb-tab-downloads'),
+  themes: document.getElementById('sb-tab-themes'),
+  settings: document.getElementById('sb-tab-settings')
+};
+
+const sidebarPanels = {
+  bookmarks: document.getElementById('sb-panel-bookmarks'),
+  history: document.getElementById('sb-panel-history'),
+  downloads: document.getElementById('sb-panel-downloads'),
+  themes: document.getElementById('sb-panel-themes'),
+  settings: document.getElementById('sb-panel-settings')
+};
 
 // Persistent Local Storage Variables
 let currentSearchEngine = localStorage.getItem('cheetah-search-engine') || 'https://duckduckgo.com/?q=';
@@ -62,6 +86,177 @@ if (speedDials.length === 0) {
     { name: 'Reddit', url: 'https://reddit.com' }
   ];
   localStorage.setItem('cheetah-speed-dials', JSON.stringify(speedDials));
+}
+
+// -------------------------------------------------------------
+// Collapsible Sidebar Controller
+// -------------------------------------------------------------
+
+function selectSidebarSection(section) {
+  activeSidebarSection = section;
+
+  // Toggle active icons
+  Object.entries(sidebarTabs).forEach(([key, btn]) => {
+    if (key === section) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+
+  // Toggle visible panels
+  Object.entries(sidebarPanels).forEach(([key, panel]) => {
+    if (key === section) panel.classList.remove('hidden');
+    else panel.classList.add('hidden');
+  });
+
+  // Update panel title
+  sidebarTitle.innerText = section.charAt(0).toUpperCase() + section.slice(1);
+
+  // Trigger specific renders
+  if (section === 'bookmarks') renderBookmarksPanel();
+  if (section === 'history') renderHistoryPanel();
+  if (section === 'downloads') renderDownloadsPanel();
+  if (section === 'themes') renderThemeGrid();
+  if (section === 'settings') updateMemorySaverUI();
+}
+
+function openSidebar(section) {
+  sidebar.classList.remove('collapsed');
+  sidebar.classList.add('open');
+  selectSidebarSection(section);
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebar.classList.add('collapsed');
+  // Remove active visual class on icons when collapsed
+  Object.values(sidebarTabs).forEach(btn => btn.classList.remove('active'));
+}
+
+// Bind Sidebar Tab Buttons
+Object.entries(sidebarTabs).forEach(([key, btn]) => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isSidebarOpen = sidebar.classList.contains('open');
+    if (isSidebarOpen && activeSidebarSection === key) {
+      closeSidebar();
+    } else {
+      openSidebar(key);
+    }
+  });
+});
+
+closeSidebarBtn.addEventListener('click', closeSidebar);
+
+// -------------------------------------------------------------
+// Memory Saver: Tab Sleeping (Unloading)
+// -------------------------------------------------------------
+
+function attachWebviewListeners(tabData) {
+  const { id, webview } = tabData;
+
+  webview.addEventListener('did-start-navigation', (e) => {
+    if (e.isMainFrame) {
+      tabData.url = e.url;
+      hideAllPopovers();
+    }
+    if (activeTabId === id) updateUI();
+  });
+
+  webview.addEventListener('page-title-updated', (e) => {
+    tabData.title = e.title;
+    if (activeTabId === id) {
+      document.title = `Cheetah - ${e.title}`;
+      updateBookmarkStarUI();
+    }
+    renderTabBar();
+    
+    // Add page to History
+    if (tabData.url && !tabData.url.startsWith('cheetah://newtab') && !tabData.url.startsWith('about:blank')) {
+      addHistoryEntry(e.title, tabData.url);
+    }
+  });
+
+  webview.addEventListener('did-finish-load', () => {
+    tabData.url = webview.getURL();
+    if (activeTabId === id) updateUI();
+  });
+
+  webview.addEventListener('dom-ready', () => {
+    try {
+      tabData.webContentsId = webview.getWebContentsId();
+    } catch (e) {
+      console.error('Failed to get WebContents ID:', e);
+    }
+  });
+
+  webview.addEventListener('new-window', (e) => {
+    createTab(e.url);
+  });
+}
+
+function sleepTab(tab) {
+  if (tab.isAsleep || tab.id === activeTabId || tab.url.startsWith('cheetah://newtab')) return;
+  
+  try {
+    tab.sleepUrl = tab.webview.getURL() || tab.url;
+  } catch(e) {
+    tab.sleepUrl = tab.url;
+  }
+  
+  tab.webview.remove();
+  tab.webview = null;
+  tab.isAsleep = true;
+  
+  renderTabBar();
+  updateMemorySaverUI();
+  console.log(`Tab ${tab.id} went to sleep to save memory.`);
+}
+
+function wakeTab(tab) {
+  if (!tab.isAsleep) return;
+  
+  const webview = document.createElement('webview');
+  webview.id = tab.id;
+  webview.src = tab.sleepUrl || 'https://duckduckgo.com';
+  webview.className = 'webview-tab';
+  webview.allowpopups = true;
+  webview.webpreferences = "contextIsolation=yes";
+  webview.partition = "incognito";
+  
+  tabsContainer.appendChild(webview);
+  tab.webview = webview;
+  tab.isAsleep = false;
+  
+  // Re-attach WebView Listeners
+  attachWebviewListeners(tab);
+  
+  renderTabBar();
+  updateMemorySaverUI();
+  console.log(`Tab ${tab.id} woke up.`);
+}
+
+// Background scheduler checking inactive tabs to freeze them
+function manageSleepingTabs() {
+  const now = Date.now();
+  const sleepTimeout = 180000; // 3 minutes
+  
+  tabs.forEach(tab => {
+    if (tab.id !== activeTabId && !tab.isAsleep && !tab.url.startsWith('cheetah://newtab')) {
+      if (now - tab.lastActiveTime > sleepTimeout) {
+        sleepTab(tab);
+      }
+    }
+  });
+}
+
+// Run monitor every 20 seconds
+setInterval(manageSleepingTabs, 20000);
+
+function updateMemorySaverUI() {
+  const statsLabel = document.getElementById('memory-saver-stats');
+  if (!statsLabel) return;
+  const sleepingCount = tabs.filter(t => t.isAsleep).length;
+  const mbSaved = sleepingCount * 120; // estimate 120MB saved per frozen process
+  statsLabel.innerText = `${mbSaved} MB Saved (${sleepingCount} Tab${sleepingCount === 1 ? '' : 's'} Asleep)`;
 }
 
 // -------------------------------------------------------------
@@ -89,78 +284,48 @@ function createTab(url = 'cheetah://newtab') {
     url,
     webContentsId: null,
     blockedCount: 0,
-    blockedTrackers: []
+    blockedTrackers: [],
+    lastActiveTime: Date.now(),
+    isAsleep: false
   };
   
   tabs.push(tabData);
-
-  // Set up WebView Event Listeners
-  webview.addEventListener('did-start-navigation', (e) => {
-    if (e.isMainFrame) {
-      tabData.url = e.url;
-      // Close all popovers when navigation starts
-      hideAllPopovers();
-    }
-    if (activeTabId === id) updateUI();
-  });
-
-  webview.addEventListener('page-title-updated', (e) => {
-    tabData.title = e.title;
-    if (activeTabId === id) {
-      document.title = `Cheetah - ${e.title}`;
-      updateBookmarkStarUI();
-    }
-    renderTabBar();
-    
-    // Add page to History
-    if (tabData.url && !tabData.url.startsWith('cheetah://newtab') && !tabData.url.startsWith('about:blank')) {
-      addHistoryEntry(e.title, tabData.url);
-    }
-  });
-
-  webview.addEventListener('did-finish-load', () => {
-    tabData.url = webview.getURL();
-    if (activeTabId === id) updateUI();
-  });
-
-  webview.addEventListener('dom-ready', () => {
-    try {
-      // Safely capture guest webContents ID to match blocker events
-      tabData.webContentsId = webview.getWebContentsId();
-    } catch (e) {
-      console.error('Failed to get WebContents ID:', e);
-    }
-  });
-
-  // Handle popup windows from within pages (redirect within the same/new tab)
-  webview.addEventListener('new-window', (e) => {
-    createTab(e.url);
-  });
-
+  attachWebviewListeners(tabData);
   switchTab(id);
 }
 
 function switchTab(id) {
+  const prevActive = tabs.find(t => t.id === activeTabId);
+  if (prevActive) {
+    prevActive.lastActiveTime = Date.now();
+  }
+
   activeTabId = id;
   const activeTab = tabs.find(t => t.id === id);
   if (!activeTab) return;
 
+  // Re-awaken tab if sleeping
+  if (activeTab.isAsleep) {
+    wakeTab(activeTab);
+  }
+
+  activeTab.lastActiveTime = Date.now();
+
   tabs.forEach(tab => {
     if (tab.id === id) {
       if (tab.url.startsWith('cheetah://newtab')) {
-        tab.webview.classList.remove('active');
+        if (tab.webview) tab.webview.classList.remove('active');
         newtabView.classList.remove('hidden');
         urlInput.value = '';
       } else {
-        tab.webview.classList.add('active');
+        if (tab.webview) tab.webview.classList.add('active');
         newtabView.classList.add('hidden');
         urlInput.value = tab.url;
-        // Refocus webview if switching to an active page
         try { tab.webview.focus(); } catch(e) {}
       }
       document.title = tab.url.startsWith('cheetah://newtab') ? 'Cheetah - New Tab' : `Cheetah - ${tab.title}`;
     } else {
-      tab.webview.classList.remove('active');
+      if (tab.webview) tab.webview.classList.remove('active');
     }
   });
 
@@ -178,7 +343,7 @@ function closeTab(id, e) {
   if (tabIndex === -1) return;
 
   const tab = tabs[tabIndex];
-  tab.webview.remove();
+  if (tab.webview) tab.webview.remove();
   tabs.splice(tabIndex, 1);
 
   if (tabs.length === 0) {
@@ -195,7 +360,7 @@ function renderTabBar() {
   tabsList.innerHTML = '';
   tabs.forEach(tab => {
     const tabItem = document.createElement('div');
-    tabItem.className = `tab-item ${tab.id === activeTabId ? 'active' : ''}`;
+    tabItem.className = `tab-item ${tab.id === activeTabId ? 'active' : ''} ${tab.isAsleep ? 'asleep' : ''}`;
     tabItem.onclick = () => switchTab(tab.id);
 
     // Favicon image or fallback
@@ -270,7 +435,7 @@ function updateUI() {
     backBtn.disabled = !activeTab.webview.canGoBack();
     forwardBtn.disabled = !activeTab.webview.canGoForward();
   } catch (e) {
-    // webview might not be fully loaded
+    // webview might not be fully loaded or is asleep
   }
 }
 
@@ -291,17 +456,20 @@ urlInput.addEventListener('focus', () => urlInput.select());
 
 backBtn.addEventListener('click', () => {
   const activeTab = tabs.find(t => t.id === activeTabId);
-  if (activeTab && activeTab.webview.canGoBack()) activeTab.webview.goBack();
+  if (activeTab && !activeTab.isAsleep && activeTab.webview.canGoBack()) activeTab.webview.goBack();
 });
 
 forwardBtn.addEventListener('click', () => {
   const activeTab = tabs.find(t => t.id === activeTabId);
-  if (activeTab && activeTab.webview.canGoForward()) activeTab.webview.goForward();
+  if (activeTab && !activeTab.isAsleep && activeTab.webview.canGoForward()) activeTab.webview.goForward();
 });
 
 reloadBtn.addEventListener('click', () => {
   const activeTab = tabs.find(t => t.id === activeTabId);
-  if (activeTab) activeTab.webview.reload();
+  if (activeTab) {
+    if (activeTab.isAsleep) wakeTab(activeTab);
+    else activeTab.webview.reload();
+  }
 });
 
 homeBtn.addEventListener('click', () => {
@@ -337,7 +505,7 @@ function navigateActiveTab(url) {
   if (url === 'cheetah://newtab') {
     activeTab.url = 'cheetah://newtab';
     activeTab.title = 'New Tab';
-    activeTab.webview.src = 'about:blank';
+    if (activeTab.webview) activeTab.webview.src = 'about:blank';
     switchTab(activeTabId);
   } else {
     if (!/^https?:\/\//i.test(url)) {
@@ -348,7 +516,12 @@ function navigateActiveTab(url) {
       }
     }
     activeTab.url = url;
-    activeTab.webview.src = url;
+    if (activeTab.isAsleep) {
+      activeTab.sleepUrl = url;
+      wakeTab(activeTab);
+    } else {
+      activeTab.webview.src = url;
+    }
   }
 }
 
@@ -471,11 +644,11 @@ function updateShieldUI() {
 }
 
 // -------------------------------------------------------------
-// Bookmarks Logic
+// Bookmarks Logic (Sidebar Content Panel)
 // -------------------------------------------------------------
 
-function renderBookmarksPopover() {
-  const list = document.getElementById('bookmarks-list');
+function renderBookmarksPanel() {
+  const list = document.getElementById('sb-bookmarks-list');
   if (bookmarks.length === 0) {
     list.innerHTML = '<div class="empty-list-msg">No bookmarks saved yet.</div>';
     return;
@@ -487,7 +660,6 @@ function renderBookmarksPopover() {
     item.className = 'popover-item';
     item.onclick = () => {
       navigateActiveTab(bm.url);
-      hideAllPopovers();
     };
     
     const details = document.createElement('div');
@@ -560,9 +732,8 @@ function renderBookmarksBar() {
 
 function saveBookmarks() {
   localStorage.setItem('cheetah-bookmarks', JSON.stringify(bookmarks));
-  renderBookmarksPopover();
+  renderBookmarksPanel();
   renderBookmarksBar();
-  renderBookmarksManager();
   updateBookmarkStarUI();
 }
 
@@ -606,7 +777,7 @@ bookmarkPageBtn.addEventListener('click', () => {
   }
 });
 
-document.getElementById('add-bookmark-btn').addEventListener('click', () => {
+document.getElementById('sb-add-bookmark-btn').addEventListener('click', () => {
   const activeTab = tabs.find(t => t.id === activeTabId);
   if (activeTab && !activeTab.url.startsWith('cheetah://newtab')) {
     addBookmark(activeTab.title || 'Bookmarked Page', activeTab.url);
@@ -614,25 +785,24 @@ document.getElementById('add-bookmark-btn').addEventListener('click', () => {
 });
 
 // -------------------------------------------------------------
-// History Logic
+// History Logic (Sidebar Content Panel)
 // -------------------------------------------------------------
 
 function addHistoryEntry(title, url) {
   if (url.startsWith('cheetah://newtab') || url.startsWith('about:blank') || !title || title === 'Loading...') return;
   
-  // Dedup history to show unique visits recently
+  // Dedup history
   history = history.filter(h => h.url !== url);
-  
   history.unshift({ title, url, timestamp: Date.now() });
   if (history.length > 300) history.pop(); // Cap history
   
   localStorage.setItem('cheetah-history', JSON.stringify(history));
-  renderHistoryPopover();
+  renderHistoryPanel();
 }
 
-function renderHistoryPopover() {
-  const list = document.getElementById('history-list');
-  const searchVal = document.getElementById('history-search').value.toLowerCase();
+function renderHistoryPanel() {
+  const list = document.getElementById('sb-history-list');
+  const searchVal = document.getElementById('sb-history-search').value.toLowerCase();
   
   const filtered = history.filter(h => 
     h.title.toLowerCase().includes(searchVal) || h.url.toLowerCase().includes(searchVal)
@@ -649,7 +819,6 @@ function renderHistoryPopover() {
     item.className = 'popover-item';
     item.onclick = () => {
       navigateActiveTab(h.url);
-      hideAllPopovers();
     };
     
     const details = document.createElement('div');
@@ -683,21 +852,21 @@ function renderHistoryPopover() {
 function deleteHistoryEntry(timestamp) {
   history = history.filter(h => h.timestamp !== timestamp);
   localStorage.setItem('cheetah-history', JSON.stringify(history));
-  renderHistoryPopover();
+  renderHistoryPanel();
 }
 
-document.getElementById('history-search').addEventListener('input', renderHistoryPopover);
+document.getElementById('sb-history-search').addEventListener('input', renderHistoryPanel);
 
-document.getElementById('clear-history-btn').addEventListener('click', () => {
+document.getElementById('sb-clear-history-btn').addEventListener('click', () => {
   if (confirm('Clear all browsing history?')) {
     history = [];
     localStorage.setItem('cheetah-history', '[]');
-    renderHistoryPopover();
+    renderHistoryPanel();
   }
 });
 
 // -------------------------------------------------------------
-// Downloads Management
+// Downloads Management (Sidebar Content Panel)
 // -------------------------------------------------------------
 
 let downloads = [];
@@ -712,10 +881,10 @@ window.electronAPI.onDownloadStarted((data) => {
     savePath: ''
   });
   
-  downloadsCountBadge.classList.remove('hidden');
+  sbDownloadsBadge.classList.remove('hidden');
   const activeCount = downloads.filter(d => d.state === 'progressing').length;
-  downloadsCountBadge.innerText = activeCount;
-  updateDownloadsUI();
+  sbDownloadsBadge.innerText = activeCount;
+  renderDownloadsPanel();
 });
 
 window.electronAPI.onDownloadUpdated((data) => {
@@ -723,7 +892,7 @@ window.electronAPI.onDownloadUpdated((data) => {
   if (dl) {
     dl.state = data.state;
     dl.receivedBytes = data.receivedBytes;
-    updateDownloadsUI();
+    renderDownloadsPanel();
   }
 });
 
@@ -733,21 +902,21 @@ window.electronAPI.onDownloadDone((data) => {
     dl.state = data.state;
     dl.savePath = data.savePath;
     dl.receivedBytes = data.receivedBytes;
-    updateDownloadsUI();
+    renderDownloadsPanel();
   }
   
   const activeCount = downloads.filter(d => d.state === 'progressing').length;
   if (activeCount === 0) {
-    downloadsCountBadge.classList.add('hidden');
+    sbDownloadsBadge.classList.add('hidden');
   } else {
-    downloadsCountBadge.innerText = activeCount;
+    sbDownloadsBadge.innerText = activeCount;
   }
 });
 
-function updateDownloadsUI() {
-  const list = document.getElementById('downloads-list');
+function renderDownloadsPanel() {
+  const list = document.getElementById('sb-downloads-list');
   if (downloads.length === 0) {
-    list.innerHTML = '<div class="empty-list-msg">No downloads in this session.</div>';
+    list.innerHTML = '<div class="empty-list-msg">No downloads.</div>';
     return;
   }
   
@@ -817,55 +986,37 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-document.getElementById('clear-downloads-btn').addEventListener('click', () => {
+document.getElementById('sb-clear-downloads-btn').addEventListener('click', () => {
   downloads = downloads.filter(d => d.state === 'progressing');
-  updateDownloadsUI();
+  renderDownloadsPanel();
 });
 
 // -------------------------------------------------------------
-// Popover Panels Overlay Logic
+// Popovers overlay
 // -------------------------------------------------------------
 
-const popovers = {
-  shield: { btn: document.getElementById('shield-status-btn'), panel: document.getElementById('shield-popover') },
-  bookmarks: { btn: document.getElementById('bookmarks-menu-btn'), panel: document.getElementById('bookmarks-popover') },
-  history: { btn: document.getElementById('history-menu-btn'), panel: document.getElementById('history-popover') },
-  downloads: { btn: document.getElementById('downloads-menu-btn'), panel: document.getElementById('downloads-popover') }
-};
+const shieldPopover = document.getElementById('shield-popover');
 
-Object.entries(popovers).forEach(([key, obj]) => {
-  obj.btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isHidden = obj.panel.classList.contains('hidden');
-    hideAllPopovers();
-    if (isHidden) {
-      obj.panel.classList.remove('hidden');
-      if (key === 'bookmarks') renderBookmarksPopover();
-      if (key === 'history') renderHistoryPopover();
-      if (key === 'downloads') updateDownloadsUI();
-      if (key === 'shield') updateShieldUI();
-    }
-  });
+shieldStatusBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isHidden = shieldPopover.classList.contains('hidden');
+  if (isHidden) {
+    shieldPopover.classList.remove('hidden');
+    updateShieldUI();
+  } else {
+    shieldPopover.classList.add('hidden');
+  }
+});
+
+document.body.addEventListener('click', (e) => {
+  if (!shieldPopover.contains(e.target) && !shieldStatusBtn.contains(e.target)) {
+    shieldPopover.classList.add('hidden');
+  }
 });
 
 function hideAllPopovers() {
-  Object.values(popovers).forEach(obj => {
-    obj.panel.classList.add('hidden');
-  });
+  shieldPopover.classList.add('hidden');
 }
-
-document.body.addEventListener('click', (e) => {
-  let clickedInside = false;
-  Object.values(popovers).forEach(obj => {
-    if (obj.panel.contains(e.target) || obj.btn.contains(e.target)) {
-      clickedInside = true;
-    }
-  });
-  
-  if (!clickedInside) {
-    hideAllPopovers();
-  }
-});
 
 // -------------------------------------------------------------
 // Home Dashboard Clock & Speed Dials
@@ -960,11 +1111,6 @@ function deleteSpeedDial(index) {
   renderSpeedDials();
 }
 
-// Dialog Logic
-const sdDialog = document.getElementById('speed-dial-dialog');
-const sdNameInput = document.getElementById('dialog-sd-name');
-const sdUrlInput = document.getElementById('dialog-sd-url');
-
 function showSpeedDialDialog() {
   sdDialog.classList.remove('hidden');
   sdNameInput.value = '';
@@ -1018,37 +1164,8 @@ function syncSearchEngineLabel() {
 }
 
 // -------------------------------------------------------------
-// Settings Switcher & UI Sync
+// Settings Switcher & UI Sync (Inside Sidebar Settings)
 // -------------------------------------------------------------
-
-const settingsNavBtns = document.querySelectorAll('.settings-nav-btn');
-const settingsSections = document.querySelectorAll('.settings-panel-section');
-
-settingsNavBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    settingsNavBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    
-    const target = btn.getAttribute('data-target');
-    settingsSections.forEach(sec => {
-      if (sec.id === target) {
-        sec.classList.remove('hidden');
-        if (target === 'settings-bookmarks') renderBookmarksManager();
-      } else {
-        sec.classList.add('hidden');
-      }
-    });
-  });
-});
-
-document.getElementById('settings-menu-btn').addEventListener('click', () => {
-  settingsModal.classList.remove('hidden');
-  hideAllPopovers();
-});
-
-closeSettingsBtn.addEventListener('click', () => {
-  settingsModal.classList.add('hidden');
-});
 
 // Search Engine Configuration
 const searchEngineSelect = document.getElementById('search-engine-select');
@@ -1084,12 +1201,9 @@ saveCustomSearch.addEventListener('click', () => {
   alert('Custom search engine saved!');
 });
 
-// Search Engine quick configurator inside URL bar
+// Search Engine quick config inside URL bar
 searchSettingsBtn.addEventListener('click', () => {
-  settingsModal.classList.remove('hidden');
-  hideAllPopovers();
-  // Focus Search section
-  document.querySelector('.settings-nav-btn[data-target="settings-search"]').click();
+  openSidebar('settings');
 });
 
 // Themes UI grid populator
@@ -1102,7 +1216,7 @@ function applyTheme(themeObj) {
 }
 
 function renderThemeGrid() {
-  const grid = document.getElementById('theme-grid');
+  const grid = document.getElementById('sb-theme-grid');
   if (!grid) return;
   grid.innerHTML = '';
   const currentThemeName = localStorage.getItem('cheetah-theme') || 'Default Dark';
@@ -1114,8 +1228,6 @@ function renderThemeGrid() {
     
     const title = document.createElement('div');
     title.innerText = theme.name;
-    title.style.fontWeight = '600';
-    title.style.fontSize = '13.5px';
     
     const preview = document.createElement('div');
     preview.className = 'theme-preview';
@@ -1132,79 +1244,14 @@ function renderThemeGrid() {
   });
 }
 
-// Themes button trigger
-document.getElementById('theme-btn').addEventListener('click', () => {
-  settingsModal.classList.remove('hidden');
-  hideAllPopovers();
-  document.querySelector('.settings-nav-btn[data-target="settings-themes"]').click();
-  renderThemeGrid();
-});
-
-// Clear Data button in privacy panel
+// Clear Data button
 document.getElementById('settings-clear-data-btn').addEventListener('click', () => {
   if (confirm('Clear all local bookmarks, history, and search preferences? This will return the browser to default.')) {
     localStorage.clear();
-    alert('Local browser configurations reset! Wiping memory and restarting browser...');
+    alert('Local browser preferences cleared! Reloading...');
     location.reload();
   }
 });
-
-// Bookmarks Manager Section list populator
-function renderBookmarksManager() {
-  const list = document.getElementById('settings-bookmarks-list');
-  if (bookmarks.length === 0) {
-    list.innerHTML = '<div class="empty-list-msg">No saved bookmarks.</div>';
-    return;
-  }
-  list.innerHTML = '';
-  bookmarks.forEach(bm => {
-    const item = document.createElement('div');
-    item.className = 'manager-item';
-    
-    const details = document.createElement('div');
-    details.style.overflow = 'hidden';
-    
-    const title = document.createElement('div');
-    title.style.fontWeight = 'bold';
-    title.innerText = bm.title;
-    
-    const link = document.createElement('div');
-    link.style.fontSize = '12px';
-    link.style.opacity = '0.5';
-    link.innerText = bm.url;
-    
-    details.appendChild(title);
-    details.appendChild(link);
-    
-    const actGroup = document.createElement('div');
-    actGroup.style.display = 'flex';
-    actGroup.style.gap = '10px';
-    
-    const goBtn = document.createElement('button');
-    goBtn.className = 'primary-btn';
-    goBtn.style.padding = '6px 12px';
-    goBtn.style.fontSize = '12px';
-    goBtn.innerText = 'Open';
-    goBtn.onclick = () => {
-      navigateActiveTab(bm.url);
-      settingsModal.classList.add('hidden');
-    };
-    
-    const delBtn = document.createElement('button');
-    delBtn.className = 'danger-btn';
-    delBtn.style.padding = '6px 12px';
-    delBtn.style.fontSize = '12px';
-    delBtn.innerText = 'Delete';
-    delBtn.onclick = () => removeBookmark(bm.url);
-    
-    actGroup.appendChild(goBtn);
-    actGroup.appendChild(delBtn);
-    
-    item.appendChild(details);
-    item.appendChild(actGroup);
-    list.appendChild(item);
-  });
-}
 
 // Apply Saved Theme on Boot
 const savedTheme = localStorage.getItem('cheetah-theme');
@@ -1218,3 +1265,4 @@ createTab();
 renderSpeedDials();
 renderBookmarksBar();
 syncSearchEngineLabel();
+updateMemorySaverUI();

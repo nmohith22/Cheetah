@@ -49,7 +49,6 @@
     },
     "linux": {
       "target": [
-        "AppImage",
         "deb",
         "zip"
       ],
