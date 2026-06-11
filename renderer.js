@@ -189,28 +189,42 @@ function attachWebviewListeners(tabData) {
 
   webview.addEventListener('did-start-navigation', (e) => {
     if (e.isMainFrame) {
-      tabData.url = e.url;
+      if (tabData.url.startsWith('cheetah://newtab') && e.url === 'about:blank') {
+        // Lock internal scheme
+      } else {
+        tabData.url = e.url;
+      }
       hideAllPopovers();
     }
     if (activeTabId === id) updateUI();
   });
 
   webview.addEventListener('page-title-updated', (e) => {
-    tabData.title = e.title;
+    if (tabData.url.startsWith('cheetah://newtab')) {
+      tabData.title = 'Home';
+    } else {
+      tabData.title = e.title;
+    }
+    
     if (activeTabId === id) {
-      document.title = `Cheetah - ${e.title}`;
+      document.title = `Cheetah - ${tabData.title}`;
       updateBookmarkStarUI();
     }
     renderTabBar();
     
     // Add page to History
     if (tabData.url && !tabData.url.startsWith('cheetah://newtab') && !tabData.url.startsWith('about:blank')) {
-      addHistoryEntry(e.title, tabData.url);
+      addHistoryEntry(tabData.title, tabData.url);
     }
   });
 
   webview.addEventListener('did-finish-load', () => {
-    tabData.url = webview.getURL();
+    const newUrl = webview.getURL();
+    if (tabData.url.startsWith('cheetah://newtab') && newUrl === 'about:blank') {
+      // Keep internal scheme
+    } else {
+      tabData.url = newUrl;
+    }
     if (activeTabId === id) updateUI();
   });
 
@@ -318,7 +332,7 @@ function createTab(url = 'cheetah://newtab', isPinned = false) {
   const tabData = { 
     id, 
     webview, 
-    title: 'New Tab', 
+    title: url.startsWith('cheetah://newtab') ? 'Home' : 'Loading...', 
     url,
     webContentsId: null,
     blockedCount: 0,
